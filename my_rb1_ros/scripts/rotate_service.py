@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
 
+import math
+import time
 import rospy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -29,27 +31,34 @@ class RotateService:
         rospy.loginfo("Service Requested")
         target_angle = self.current_orientation + (request.degrees * 3.141 / 180.0)
 
-        while target_angle > 3.141:
-            target_angle -= 2 * 3.141
-        while target_angle < -3.141:
-            target_angle += 2 * 3.141
+        while target_angle > math.pi:
+            target_angle -= 2 * math.pi
+        while target_angle < -math.pi:
+            target_angle += 2 * math.pi
 
         twist = Twist()
         if request.degrees > 0:
-            twist.angular.z = 0.1
+            twist.angular.z = 0.4
         else:
-            twist.angular.z = -0.1
+            twist.angular.z = -0.4
 
         rate = rospy.Rate(10)
+        start_time = time.time()
         while not rospy.is_shutdown():
             if abs(self.current_orientation - target_angle) < 0.05:
                 break
+            if time.time() - start_time > 10: # Failure case
+                twist.angular.z = 0
+                self.pub.publish(twist)
+                rospy.loginfo("Service Time Out")
+                return RotateResponse(result="Service Failed")
+            
             self.pub.publish(twist)
             rate.sleep()
 
         twist.angular.z = 0
         self.pub.publish(twist)
-
+        rospy.loginfo("Service Completed")
         return RotateResponse(result="Service Completed")
 
 
