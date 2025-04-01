@@ -16,7 +16,7 @@ class RotateService:
         self.srv = rospy.Service('/rotate_robot', Rotate, self.rotate_robot)
         self.current_orientation = None
 
-        rospy.loginfo("Service Ready")
+        rospy.loginfo("Rotate Service Ready. Waiting for rotation requests...")
         rospy.spin()
 
     def odom_callback(self, msg):
@@ -28,7 +28,8 @@ class RotateService:
         _, _, self.current_orientation = euler_from_quaternion([orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w])
 
     def rotate_robot(self, request):
-        rospy.loginfo("Service Requested")
+        rospy.loginfo(f"Rotate Service Requested: {request.degrees} [deg].")
+        rospy.loginfo(f"Current orientation: {self.current_orientation * 180.0 / math.pi:.2f} [deg].")
         target_angle = self.current_orientation + (request.degrees * 3.141 / 180.0)
 
         while target_angle > math.pi:
@@ -50,16 +51,16 @@ class RotateService:
             if time.time() - start_time > 10: # Failure case
                 twist.angular.z = 0
                 self.pub.publish(twist)
-                rospy.loginfo("Service Time Out")
-                return RotateResponse(result="Service Failed")
+                rospy.logwarn(f"Rotation incomplete. Final orientation: {self.current_orientation * 180.0 / math.pi:.2f} [deg]")
+                return RotateResponse(result=f"Failed: Rotation incomplete. Final orientation: {self.current_orientation * 180.0 / math.pi:.2f} [deg]")
             
             self.pub.publish(twist)
             rate.sleep()
 
         twist.angular.z = 0
         self.pub.publish(twist)
-        rospy.loginfo("Service Completed")
-        return RotateResponse(result="Service Completed")
+        rospy.loginfo(f"Rotate Service Completed. Target orientation reached: {target_angle * 180.0 / math.pi:.2f} [deg]")
+        return RotateResponse(result=f"Rotate Service Completed. Target orientation reached: {target_angle * 180.0 / math.pi:.2f} [deg]")
 
 
 if __name__ == '__main__':
